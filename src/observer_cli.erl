@@ -22,6 +22,7 @@ start() -> start(#view_opts{}).
 -spec start(Node) -> no_return when Node :: atom() | non_neg_integer().
 start(Node) when Node =:= node() -> start(#view_opts{});
 start(Node) when is_atom(Node) -> rpc_start(Node, ?DEFAULT_INTERVAL);
+start(Pid) when is_pid(Pid) -> 	start(#view_opts{home=#home{owner=Pid}});
 start(#view_opts{home = Home} = Opts) ->
     erlang:process_flag(trap_exit, true),
     AutoRow = check_auto_row(),
@@ -118,26 +119,26 @@ manager(StorePid, RenderPid, Opts, LastSchWallFlag) ->
             manager(StorePid, RenderPid, Opts, LastSchWallFlag)
     end.
 
-render_worker(Manager, #home{} = Home, AutoRow) ->
-    ?output(?CLEAR),
+render_worker(Manager, #home{printFun=OwnerPid} = Home, AutoRow) ->
+    ?output(OwnerPid,?CLEAR),
     StableInfo = get_stable_system_info(),
     LastStats = get_incremental_stats(),
     redraw_running(Manager, Home, StableInfo, LastStats, erlang:make_ref(), AutoRow, true).
 
 %% pause status waiting to be resume
-redraw_pause(StorePid, #home{func = Func, type = Type} = Home, StableInfo, LastStats, LastTimeRef, AutoRow) ->
-    notify_pause_status(),
+redraw_pause(StorePid, #home{printFun=PrintFun,func = Func, type = Type} = Home, StableInfo, LastStats, LastTimeRef, AutoRow) ->
+    notify_pause_status(PrintFun),
     erlang:cancel_timer(LastTimeRef),
     receive
         quit -> quit;
         {Func, Type} -> redraw_running(StorePid, Home, StableInfo, LastStats, LastTimeRef, AutoRow, false);
         pause_or_resume ->
-            ?output(?CLEAR),
+            ?output(PrintFun,?CLEAR),
             redraw_running(StorePid, Home, StableInfo, LastStats, LastTimeRef, AutoRow, true)
     end.
 
 %% running status
-redraw_running(StorePid, #home{interval = Interval, func = Func,
+redraw_running(StorePid, #home{printFun= PrintFun,interval = Interval, func = Func,
     type = Type, pages = RankPos, cur_page = CurPage} = Home,
     StableInfo, LastStats, LastTimeRef, AutoRow, IsFirstTime) ->
     erlang:cancel_timer(LastTimeRef),
@@ -155,8 +156,8 @@ redraw_running(StorePid, #home{interval = Interval, func = Func,
     MemLine = render_memory_process_line(Processes, Schedulers, Interval),
     {TopNList, RankLine} = render_top_n_view(Type, TopList, ProcessRows, RankPos, CurPage),
     LastLine = observer_cli_lib:render_last_line(?LAST_LINE),
-    ?output([?CURSOR_TOP, MenuLine, SystemLine, MemLine, CPULine, RankLine, LastLine]),
-    
+    ?output(PrintFun,[?CURSOR_TOP, MenuLine, SystemLine, MemLine, CPULine, RankLine, LastLine]),
+
     observer_cli_store:update(StorePid, ProcessRows, TopNList),
     TimeRef = refresh_next_time(Func, Type, Interval),
     receive
@@ -221,7 +222,7 @@ render_memory_process_line(ProcSum, MemSum, Interval) ->
         {gc_words_reclaimed, GcWordsReclaimed},
         {reductions, Reductions} | _
     ] = MemSum,
-    
+
     {Queue, LogKey} =
         case whereis(error_logger) of
             undefined ->
@@ -236,7 +237,7 @@ render_memory_process_line(ProcSum, MemSum, Interval) ->
     BinMemPercent = observer_cli_lib:to_percent(BinMem / TotalMem),
     CodeMemPercent = observer_cli_lib:to_percent(CodeMem / TotalMem),
     EtsMemPercent = observer_cli_lib:to_percent(EtsMem / TotalMem),
-    
+
     Title = ?render([
         ?GRAY_BG, ?W("Mem Type", 10), ?W("Size", 21),
         ?W("Mem Type", 25), ?W("Size", 21),
@@ -494,8 +495,8 @@ top_n_rows(FormatFunc, Start, List) ->
     {Row, PidList, _} = lists:foldl(FormatFunc, {[], [], Start}, List),
     {Row, PidList}.
 
-notify_pause_status() ->
-    ?output("\e[31;1m PAUSE  INPUT (p, r/rr, b/bb, h/hh, m/mm) to resume or q to quit \e[0m~n").
+notify_pause_status(PrintFun) ->
+    ?output(PrintFun,"\e[31;1m PAUSE  INPUT (p, r/rr, b/bb, h/hh, m/mm) to resume or q to quit \e[0m~n").
 
 get_memory_format(Pos, Pos) ->
     "|\e[42m~-3.3w|~-12.12s|~13.13s |~-38.38s|~21.21s| ~-9.9s|~-33.33s\e[49m|~n";
@@ -639,7 +640,7 @@ get_top_n(_Func, Type, _Interval, Rows, _FirstTime) ->
 
 connect_error(Reason, Prompt, Node) ->
     Prop = <<?RED/binary, Prompt/binary, ?RESET/binary>>,
-    ?output(Prop, [Node]),
+    ?output(null,Prop, [Node]),
     Reason.
 
 start_process_view(StorePid, RenderPid, Opts = #view_opts{home = Home}, LastSchWallFlag, AutoJump) ->

@@ -8,6 +8,7 @@
     type = memory :: atom(),
     cur_page = 1 :: pos_integer(),
     pages = [{1,1}] :: list(),
+    printFun = null :: fun(),
     interval = ?DEFAULT_INTERVAL :: pos_integer()}).
 
 -record(ets, {
@@ -95,7 +96,10 @@
 -define(UNSELECT(Text), observer_cli_lib:unselect(Text)).
 
 -define(render(_FA_), observer_cli_lib:render(_FA_)).
--define(output(_F_, _A_), io:format(iolist_to_binary(_F_), _A_)).
--define(output(_L_), ?output(_L_, [])).
+-define(output(null,_F_, _A_), io:format(iolist_to_binary(_F_), _A_)).
+-define(output(null,_L_), ?output(_L_, [])).
+
+-define(output(PrintFun,_F_, _A_), PrintFun(iolist_to_binary(_F_), _A_))).
+-define(output(PrintFun,_L_), ?output(PrintFun,_L_, [])).
 
 
