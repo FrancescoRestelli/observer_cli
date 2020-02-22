@@ -119,8 +119,8 @@ manager(StorePid, RenderPid, Opts, LastSchWallFlag) ->
             manager(StorePid, RenderPid, Opts, LastSchWallFlag)
     end.
 
-render_worker(Manager, #home{printFun=OwnerPid} = Home, AutoRow) ->
-    ?output(OwnerPid,?CLEAR),
+render_worker(Manager, #home{printFun=PrintFun} = Home, AutoRow) ->
+    ?output(PrintFun,?CLEAR),
     StableInfo = get_stable_system_info(),
     LastStats = get_incremental_stats(),
     redraw_running(Manager, Home, StableInfo, LastStats, erlang:make_ref(), AutoRow, true).
