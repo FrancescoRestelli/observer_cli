@@ -22,10 +22,10 @@
 %%  List Memory Allocators: std, ll, eheap, ets, fix, binary, driver.
 -spec start(ViewOpts) -> no_return when
     ViewOpts :: view_opts().
-start(#view_opts{sys = #system{interval = Interval}} = ViewOpts) ->
+start(#view_opts{home=#home{printFun=PrintFun},sys = #system{interval = Interval}} = ViewOpts) ->
     Pid = spawn_link(fun() ->
-        ?output(?CLEAR),
-        render_worker(Interval, ?INIT_TIME_REF)
+        ?output(PrintFun,?CLEAR),
+        render_worker(Interval, ?INIT_TIME_REF, PrintFun)
                      end),
     manager(Pid, ViewOpts).
 
@@ -42,7 +42,7 @@ manager(Pid, #view_opts{sys = AllocatorOpts} = ViewOpts) ->
         _ -> manager(Pid, ViewOpts)
     end.
 
-render_worker(Interval, LastTimeRef) ->
+render_worker(Interval, LastTimeRef, PrintFun) ->
     CacheHitInfo = recon_alloc:cache_hit_rates(),
     AverageBlockCurs = recon_alloc:average_block_sizes(current),
     AverageBlockMaxes = recon_alloc:average_block_sizes(max),
@@ -54,12 +54,12 @@ render_worker(Interval, LastTimeRef) ->
     BlockView = render_block_size_info(AverageBlockCurs, AverageBlockMaxes, SbcsToMbcsCurs, SbcsToMbcsMaxs),
     HitView = render_cache_hit_rates(CacheHitInfo, erlang:length(CacheHitInfo)),
     LastLine = observer_cli_lib:render_last_line("q(quit)"),
-    ?output([?CURSOR_TOP, Menu, Sys, BlockView, HitView, LastLine]),
+    ?output(PrintFun,[?CURSOR_TOP, Menu, Sys, BlockView, HitView, LastLine]),
     NextTimeRef = observer_cli_lib:next_redraw(LastTimeRef, Interval),
     receive
         quit -> quit;
-        {new_interval, NewInterval} -> render_worker(NewInterval, NextTimeRef);
-        redraw -> render_worker(Interval, NextTimeRef)
+        {new_interval, NewInterval} -> render_worker(NewInterval, NextTimeRef, PrintFun);
+        redraw -> render_worker(Interval, NextTimeRef, PrintFun)
     end.
 
 render_cache_hit_rates(CacheHitInfo, Len) when Len =< 8 ->

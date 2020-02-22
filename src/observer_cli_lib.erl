@@ -5,7 +5,7 @@
 -compile(inline).
 
 %% API
--export([parse_cmd/2]).
+-export([parse_cmd/2, print/3]).
 -export([uptime/0]).
 -export([to_percent/1]).
 -export([to_list/1]).
@@ -33,7 +33,7 @@
 
 -spec uptime() -> list().
 uptime() ->
-    
+
     {UpTime, _} = erlang:statistics(wall_clock),
     {D, {H, M, S}} = calendar:seconds_to_daystime(UpTime div 1000),
     Time = [
@@ -174,7 +174,7 @@ parse_cmd(ViewOpts, Pids) ->
         "so\n" -> send_oct;
         "cnt\n" -> cnt;
         "oct\n" -> oct;
-        
+
         %% menu view
         "H\n" ->
             exit_processes(Pids),
@@ -208,7 +208,7 @@ parse_cmd(ViewOpts, Pids) ->
         "PD\n" -> page_down_top_n;   %% forward
         "B\n" -> page_up_top_n;     %% backward
         "F\n" -> page_down_top_n;   %% forward
-        
+
         %% home
         "p\n" -> pause_or_resume;
         "r\n" -> {func, proc_count, reductions};
@@ -316,3 +316,8 @@ sbcs_to_mbcs(TypeList, STMList) ->
             (_, Acc) -> Acc
         end,
     maps:to_list(lists:foldl(FoldlFun, #{}, STMList)).
+
+print(Fun, Format, Args)when is_function(Fun) ->
+    Fun(Format, Args);
+print(Fun,Format,Args)->
+    io:format(Format,Args).

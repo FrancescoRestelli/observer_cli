@@ -10,10 +10,10 @@
 %% @doc List application info
 
 -spec start(ViewOpts) -> no_return when ViewOpts :: view_opts().
-start(#view_opts{} = ViewOpts) ->
+start(#view_opts{home = #home{printFun = PrintFun}} = ViewOpts) ->
     Pid = spawn_link(fun() ->
-        ?output(?CLEAR),
-        render_worker(?INTERVAL)
+        ?output(PrintFun,?CLEAR),
+        render_worker(?INTERVAL, PrintFun)
                 end),
     manager(Pid, ViewOpts).
 
@@ -26,16 +26,16 @@ manager(Pid, ViewOpts) ->
         _ -> manager(Pid, ViewOpts)
     end.
 
-render_worker(Interval) ->
+render_worker(Interval, PrintFun) ->
     Text = "Interval: " ++ integer_to_list(Interval) ++ "ms",
     Menu = observer_cli_lib:render_menu(app, Text),
     Info = render_application_info(),
     LastLine = observer_cli_lib:render_last_line("q(quit)"),
-    ?output([?CURSOR_TOP, Menu, Info, LastLine]),
+    ?output(PrintFun,[?CURSOR_TOP, Menu, Info, LastLine]),
     erlang:send_after(Interval, self(), redraw),
     receive
         quit -> quit;
-        redraw -> render_worker(Interval)
+        redraw -> render_worker(Interval, PrintFun)
     end.
 
 render_application_info() ->

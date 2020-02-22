@@ -22,11 +22,11 @@
 
 -spec start(ViewOpts) -> no_return() when
     ViewOpts :: view_opts().
-start(#view_opts{plug = Plugs, auto_row = AutoRow} = ViewOpts) ->
+start(#view_opts{home=#home{printFun=PrintFun},plug = Plugs, auto_row = AutoRow} = ViewOpts) ->
     NewPlugs = init_config(Plugs),
     Pid = spawn_link(fun() ->
-        ?output(?CLEAR),
-        render_worker(?INIT_TIME_REF, NewPlugs, AutoRow, undefined, undefined)
+        ?output(PrintFun,?CLEAR),
+        render_worker(?INIT_TIME_REF, NewPlugs, AutoRow, undefined, undefined, PrintFun)
                      end),
     manager(Pid, ViewOpts#view_opts{plug = NewPlugs}).
 
@@ -121,7 +121,7 @@ match_sheet_shortcut(_Cmd, [], _Index) -> {error, not_found};
 match_sheet_shortcut(Shortcut, [#{shortcut := Shortcut} | _], Index) -> {ok, Index};
 match_sheet_shortcut(Cmd, [_ | T], Index) -> match_sheet_shortcut(Cmd, T, Index + 1).
 
-render_worker(LastTimeRef, #plug{cur_index = CurIndex, plugs = Plugs} = PlugInfo, AutoRow, PrevAttrs, PrevSheet) ->
+render_worker(LastTimeRef, #plug{cur_index = CurIndex, plugs = Plugs} = PlugInfo, AutoRow, PrevAttrs, PrevSheet, PrintFun) ->
     TerminalRow = observer_cli_lib:get_terminal_rows(AutoRow),
     case maps:find(CurIndex, Plugs) of
         {ok, #{interval := Interval, cur_page := CurPage, sheet_width := SheetWidth} = CurPlug} ->
@@ -130,16 +130,16 @@ render_worker(LastTimeRef, #plug{cur_index = CurIndex, plugs = Plugs} = PlugInfo
             {SheetLine, NewSheet} = render_sheet(erlang:max(0, TerminalRow - LabelLine - 4), CurPlug, PrevSheet),
             LastText = io_lib:format(?LAST_LINE, [Interval, CurPage]),
             LastLine = ?render([?UNDERLINE, ?GRAY_BG, ?W(LastText, SheetWidth)]),
-            ?output([?CURSOR_TOP, Menu, Labels, SheetLine, LastLine]),
+            ?output(PrintFun,[?CURSOR_TOP, Menu, Labels, SheetLine, LastLine]),
             NextTimeRef = observer_cli_lib:next_redraw(LastTimeRef, Interval),
             receive
                 quit -> quit;
-                _ -> render_worker(NextTimeRef, PlugInfo, AutoRow, NewAttrs, NewSheet)
+                _ -> render_worker(NextTimeRef, PlugInfo, AutoRow, NewAttrs, NewSheet, PrintFun)
             end;
         error ->
             Menu = ?render([?UNDERLINE, ?W(?UNSELECT("Home(H)"), 30), ?W(?SELECT("EmptyPlugin"), 144)]),
             ErrInfo = "|Plugin Error: Can't find your observer_cli config.\n|Please visit \"How to write your own plugin\" in readme.\n",
-            ?output([?CURSOR_TOP, Menu, ErrInfo])
+            ?output(PrintFun,[?CURSOR_TOP, Menu, ErrInfo])
     end.
 
 parse_cmd() ->

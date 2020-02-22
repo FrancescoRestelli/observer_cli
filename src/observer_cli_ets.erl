@@ -10,11 +10,11 @@
 
 -spec start(ViewOpts) -> no_return() when
     ViewOpts :: view_opts().
-start(#view_opts{ets = #ets{interval = Interval, attr = Attr, cur_page = CurPage},
+start(#view_opts{home = #home{printFun = PrintFun},ets = #ets{interval = Interval, attr = Attr, cur_page = CurPage},
     auto_row = AutoRow} = ViewOpts) ->
     Pid = spawn_link(fun() ->
-        ?output(?CLEAR),
-        render_worker(Interval, ?INIT_TIME_REF, Attr, CurPage, AutoRow)
+        ?output(PrintFun,?CLEAR),
+        render_worker(Interval, ?INIT_TIME_REF, Attr, CurPage, AutoRow, PrintFun)
                      end),
     manager(Pid, ViewOpts).
 
@@ -44,17 +44,17 @@ manager(ChildPid, #view_opts{ets = EtsOpts = #ets{cur_page = CurPage}} = ViewOpt
         _ -> manager(ChildPid, ViewOpts)
     end.
 
-render_worker(Interval, LastTimeRef, Attr, CurPage, AutoRow) ->
+render_worker(Interval, LastTimeRef, Attr, CurPage, AutoRow, PrintFun) ->
     TerminalRow = observer_cli_lib:get_terminal_rows(AutoRow),
     Text = "Interval: " ++ integer_to_list(Interval) ++ "ms",
     Menu = observer_cli_lib:render_menu(ets, Text),
     Ets = render_ets_info(erlang:max(0, TerminalRow - 4), CurPage, Attr),
     LastLine = observer_cli_lib:render_last_line(?LAST_LINE),
-    ?output([?CURSOR_TOP, Menu, Ets, LastLine]),
+    ?output(PrintFun,[?CURSOR_TOP, Menu, Ets, LastLine]),
     NextTimeRef = observer_cli_lib:next_redraw(LastTimeRef, Interval),
     receive
         quit -> quit;
-        _ -> render_worker(Interval, NextTimeRef, Attr, CurPage, AutoRow)
+        _ -> render_worker(Interval, NextTimeRef, Attr, CurPage, AutoRow, PrintFun)
     end.
 
 render_ets_info(Rows, CurPage, Attr) ->

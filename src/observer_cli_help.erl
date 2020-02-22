@@ -8,14 +8,14 @@
 -define(HELP_COLUMN_WIDTH, 85).
 
 -spec start(view_opts()) -> no_return.
-start(#view_opts{help = #help{interval = Interval}} = ViewOpts) ->
+start(#view_opts{home = #home{printFun = PrintFun},help = #help{interval = Interval}} = ViewOpts) ->
     ChildPid = spawn_link(fun() ->
         Text = "Interval: " ++ integer_to_list(Interval) ++ "ms",
         Menu = observer_cli_lib:render_menu(doc, Text),
         Help = render_help(),
         LastLine = observer_cli_lib:render_last_line("q(quit)"),
-        ?output([?CLEAR, Menu, Help, ?UNDERLINE, ?GRAY_BG, LastLine, ?RESET_BG, ?RESET]),
-        render_worker(Interval)
+        ?output(PrintFun,[?CLEAR, Menu, Help, ?UNDERLINE, ?GRAY_BG, LastLine, ?RESET_BG, ?RESET]),
+        render_worker(Interval, PrintFun)
                      end),
     manager(ChildPid, ViewOpts).
 
@@ -28,19 +28,19 @@ manager(ChildPid, ViewOpts) ->
         _ -> manager(ChildPid, ViewOpts)
     end.
 
-render_worker(Interval) ->
-    ?output(?CURSOR_TOP),
+render_worker(Interval, PrintFun) ->
+    ?output(PrintFun,?CURSOR_TOP),
     Text = "Interval: " ++ integer_to_list(Interval) ++ "ms",
     Menu = observer_cli_lib:render_menu(doc, Text),
-    ?output([?CURSOR_TOP, Menu]),
+    ?output(PrintFun,[?CURSOR_TOP, Menu]),
     erlang:send_after(Interval, self(), redraw),
     receive
-        redraw -> render_worker(Interval);
+        redraw -> render_worker(Interval, PrintFun);
         quit ->
             MenuQ = observer_cli_lib:render_menu(doc, Text),
             HelpQ = render_help(),
             LastLine = observer_cli_lib:render_last_line("q(quit)"),
-            ?output([?CURSOR_TOP, MenuQ, HelpQ, ?UNDERLINE, ?GRAY_BG, LastLine, ?RESET_BG, ?RESET])
+            ?output(PrintFun,[?CURSOR_TOP, MenuQ, HelpQ, ?UNDERLINE, ?GRAY_BG, LastLine, ?RESET_BG, ?RESET])
     end.
 
 render_help() ->
@@ -49,7 +49,7 @@ render_help() ->
         "| \e[48;2;80;80;80m1.1\e[0m  observer_cli:start(). \n",
         "| \e[48;2;80;80;80m1.2\e[0m  observer_cli:start(Node).\n",
         "| \e[48;2;80;80;80m1.3\e[0m  observer_start:start(Node, Cookie).\n",
-        
+
         "|\e[44m2. HOME(H) Commands\e[49m \n",
         "| \e[48;2;80;80;80mPageDown \e[0m  pd or F(forward).\n",
         "| \e[48;2;80;80;80mPageUp   \e[0m  pu or B(back).\n",
@@ -66,14 +66,14 @@ render_help() ->
         "| \e[48;2;80;80;80m3000     \e[0m set interval time to 3000ms, the integer must >= 1500.\n",
         "| \e[48;2;80;80;80m13       \e[0m choose the 13th process(green line), the integer must in top list.\n",
         "| \e[48;2;80;80;80mp        \e[0m pause/unpause the view.\n",
-        
+
         "|\e[44m4. About HOME(H)'s IO Output/Input\e[49m \n",
         "| Due to bytes in and out of the node, number of garbage collector runs, words of \n",
         "| memory that were garbage collected, and the global reductions count for the node \n",
         "| never stop increasing, \e[48;2;80;80;80mHOME(H)\e[0m's \"IO input/out\", \"Gc Words Reclaimed\", \"Gc \n",
         "| Count\" only represents the increments between two refresh interval \n",
         "| The total bytes in and out in \e[48;2;80;80;80mNetwork(N)\e[0m view. \n",
-        
+
         "|\e[44m5. Reference\e[49m \n",
         "|More information about recon:proc_count/2 and recon:proc_window/3 \n",
         "|refer to https://github.com/ferd/recon/blob/master/src/recon.erl  \n",

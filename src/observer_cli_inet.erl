@@ -9,13 +9,13 @@
     " sc(send_cnt) so(send_oct) cnt oct 9(port 9 info) pd/pu(page:down/up)").
 
 -spec start(view_opts()) -> no_return.
-start(#view_opts{inet = InetOpt, auto_row = AutoRow} = ViewOpts) ->
+start(#view_opts{home = #home{printFun = PrintFun},inet = InetOpt, auto_row = AutoRow} = ViewOpts) ->
     StorePid = observer_cli_store:start(),
     RenderPid = spawn_link(
         fun() ->
-            ?output(?CLEAR),
+            ?output(PrintFun,?CLEAR),
             {{input, In}, {output, Out}} = erlang:statistics(io),
-            render_worker(StorePid, InetOpt, ?INIT_TIME_REF, 0, {In, Out}, AutoRow)
+            render_worker(StorePid, InetOpt, ?INIT_TIME_REF, 0, {In, Out}, AutoRow, PrintFun)
         end),
     manager(StorePid, RenderPid, ViewOpts).
 
@@ -58,7 +58,7 @@ manager(StorePid, RenderPid, ViewOpts = #view_opts{inet = InetOpts}) ->
         _ -> manager(StorePid, RenderPid, ViewOpts)
     end.
 
-render_worker(StorePid, InetOpt, LastTimeRef, Count, LastIO, AutoRow) ->
+render_worker(StorePid, InetOpt, LastTimeRef, Count, LastIO, AutoRow, PrintFun) ->
     #inet{func = Function, type = Type, interval = Interval, cur_page = CurPage} = InetOpt,
     TerminalRow = observer_cli_lib:get_terminal_rows(AutoRow),
     Row = erlang:max(TerminalRow - 5, 0),
@@ -69,16 +69,16 @@ render_worker(StorePid, InetOpt, LastTimeRef, Count, LastIO, AutoRow) ->
     {IORows, NewIO} = render_io_rows(LastIO),
     {PortList, InetRows} = render_inet_rows(InetList, TopLen, InetOpt),
     LastLine = observer_cli_lib:render_last_line(?LAST_LINE),
-    ?output([?CURSOR_TOP, Menu, IORows, InetRows, LastLine]),
+    ?output(PrintFun,[?CURSOR_TOP, Menu, IORows, InetRows, LastLine]),
     observer_cli_store:update(StorePid, Row, PortList),
     NewInterval = case Function of inet_count -> Interval; inet_window -> 10 end,
     TimeRef = observer_cli_lib:next_redraw(LastTimeRef, NewInterval),
     receive
         {new_interval, NewInterval} ->
-            ?output(?CLEAR),
-            render_worker(StorePid, InetOpt#inet{interval = NewInterval}, TimeRef, Count + 1, NewIO, AutoRow);
+            ?output(PrintFun,?CLEAR),
+            render_worker(StorePid, InetOpt#inet{interval = NewInterval}, TimeRef, Count + 1, NewIO, AutoRow, PrintFun);
         quit -> quit;
-        _ -> render_worker(StorePid, InetOpt, TimeRef, Count + 1, NewIO, AutoRow)
+        _ -> render_worker(StorePid, InetOpt, TimeRef, Count + 1, NewIO, AutoRow, PrintFun)
     end.
 
 render_io_rows({LastIn, LastOut}) ->

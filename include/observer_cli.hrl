@@ -96,10 +96,7 @@
 -define(UNSELECT(Text), observer_cli_lib:unselect(Text)).
 
 -define(render(_FA_), observer_cli_lib:render(_FA_)).
--define(output(null,_F_, _A_), io:format(iolist_to_binary(_F_), _A_)).
--define(output(null,_L_), ?output(_L_, [])).
-
--define(output(PrintFun,_F_, _A_), PrintFun(iolist_to_binary(_F_), _A_))).
+-define(output(PrintFun,_F_, _A_), observer_cli_lib:print(iolist_to_binary(_F_), _A_)).
 -define(output(PrintFun,_L_), ?output(PrintFun,_L_, [])).
 
 

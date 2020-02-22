@@ -11,12 +11,12 @@
 
 -spec start(#view_opts{}) -> any().
 
-start(#view_opts{db = #db{interval = MillSecond,
+start(#view_opts{home = #home{printFun = PrintFun},db = #db{interval = MillSecond,
     hide_sys = HideSys, cur_page = CurPage, attr = Attr},
     auto_row = AutoRow} = HomeOpts) ->
     Pid = spawn_link(fun() ->
-        ?output(?CLEAR),
-        render_worker(MillSecond, ?INIT_TIME_REF, HideSys, AutoRow, Attr, CurPage)
+        ?output(PrintFun,?CLEAR),
+        render_worker(MillSecond, ?INIT_TIME_REF, HideSys, AutoRow, Attr, CurPage, PrintFun)
                      end),
     manager(Pid, HomeOpts).
 
@@ -52,7 +52,7 @@ manager(ChildPid, #view_opts{db = DBOpts
         _ -> manager(ChildPid, HomeOpts)
     end.
 
-render_worker(Interval, LastTimeRef, HideSystemTable, AutoRow, Attr, CurPage) ->
+render_worker(Interval, LastTimeRef, HideSystemTable, AutoRow, Attr, CurPage, PrintFun) ->
     TerminalRow = observer_cli_lib:get_terminal_rows(AutoRow),
     Rows = erlang:max(TerminalRow - 5, 0),
     Text = "Interval: " ++ integer_to_list(Interval) ++ "ms"
@@ -62,20 +62,20 @@ render_worker(Interval, LastTimeRef, HideSystemTable, AutoRow, Attr, CurPage) ->
     case get_table_list(HideSystemTable, Attr) of
         {error, Reason} ->
             ErrInfo = io_lib:format("Mnesia Error   ~p~n", [Reason]),
-            ?output([?CURSOR_TOP, Menu, ErrInfo, LastLine]);
+            ?output(PrintFun,[?CURSOR_TOP, Menu, ErrInfo, LastLine]);
         MnesiaList ->
             Info = render_mnesia(MnesiaList, Attr, Rows, CurPage),
-            ?output([?CURSOR_TOP, Menu, Info, LastLine])
+            ?output(PrintFun,[?CURSOR_TOP, Menu, Info, LastLine])
     end,
     TimeRef = observer_cli_lib:next_redraw(LastTimeRef, Interval),
     receive
         quit -> quit;
         {new_interval, NewInterval} ->
-            render_worker(NewInterval, TimeRef, HideSystemTable, AutoRow, Attr, CurPage);
+            render_worker(NewInterval, TimeRef, HideSystemTable, AutoRow, Attr, CurPage, PrintFun);
         {system_table, NewHideSystemTable} ->
-            render_worker(Interval, TimeRef, NewHideSystemTable, AutoRow, Attr, CurPage);
+            render_worker(Interval, TimeRef, NewHideSystemTable, AutoRow, Attr, CurPage, PrintFun);
         _ ->
-            render_worker(Interval, TimeRef, HideSystemTable, AutoRow, Attr, CurPage)
+            render_worker(Interval, TimeRef, HideSystemTable, AutoRow, Attr, CurPage, PrintFun)
     end.
 
 render_mnesia(MnesiaList, Attr, Rows, CurPage) ->

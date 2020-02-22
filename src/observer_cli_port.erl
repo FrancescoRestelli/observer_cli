@@ -6,10 +6,10 @@
 
 -spec start(pid(), view_opts()) -> no_return.
 start(Port, Opts) ->
-    #view_opts{port = RefreshMs} = Opts,
+    #view_opts{home=#home{printFun=PrintFun},port = RefreshMs} = Opts,
     RenderPid = spawn_link(fun() ->
-        ?output(?CLEAR),
-        render_worker(Port, RefreshMs, ?INIT_TIME_REF)
+        ?output(PrintFun,?CLEAR),
+        render_worker(Port, RefreshMs, ?INIT_TIME_REF, PrintFun)
                      end),
     manager(RenderPid, Opts).
 
@@ -27,55 +27,55 @@ manager(RenderPid, Opts) ->
             manager(RenderPid, Opts)
     end.
 
-render_worker(Port, Interval, TimeRef) ->
+render_worker(Port, Interval, TimeRef, PrintFun) ->
     PortInfo = recon:port_info(Port),
     Meta = proplists:get_value(meta, PortInfo),
     case lists:member(undefined, Meta) of
         true ->
-            output_die_view(Port, Interval),
-            next_draw_view(TimeRef, Interval, Port);
+            output_die_view(PrintFun,Port, Interval),
+            next_draw_view(TimeRef, Interval, Port, PrintFun);
         false ->
             Id = proplists:get_value(id, Meta),
             Name = proplists:get_value(name, Meta),
             OsPid = proplists:get_value(os_pid, Meta),
-            
+
             Signals = proplists:get_value(signals, PortInfo),
             Link = proplists:get_value(links, Signals),
             Monitors = proplists:get_value(monitors, Signals),
             Connected = proplists:get_value(connected, Signals),
-            
+
             IO = proplists:get_value(io, PortInfo),
             Input = proplists:get_value(input, IO),
             Output = proplists:get_value(output, IO),
-            
+
             MemoryUsed = proplists:get_value(memory_used, PortInfo),
             Memory = proplists:get_value(memory, MemoryUsed),
             QueueSize = proplists:get_value(queue_size, MemoryUsed),
             Menu = render_menu(info, Interval),
-            
+
             Line1 = render_port_info(Port, Id, Name, OsPid,
                 Input, Output, Memory, QueueSize, Connected),
             Line2 = render_link_monitor(Link, Monitors),
             Line3 = render_type_line(proplists:get_value(type, PortInfo)),
             LastLine = render_last_line(),
-            
-            ?output([?CURSOR_TOP, Menu, Line1, Line2, Line3, LastLine]),
-            next_draw_view(TimeRef, Interval, Port)
+
+            ?output(PrintFun,[?CURSOR_TOP, Menu, Line1, Line2, Line3, LastLine]),
+            next_draw_view(TimeRef, Interval, Port, PrintFun)
     end.
 
-next_draw_view(TimeRef, Interval, Port) ->
+next_draw_view(TimeRef, Interval, Port, PrintFun) ->
     NewTimeRef = observer_cli_lib:next_redraw(TimeRef, Interval),
-    next_draw_view_2(NewTimeRef, Interval, Port).
+    next_draw_view_2(NewTimeRef, Interval, Port, PrintFun).
 
-next_draw_view_2(TimeRef, Interval, Port) ->
+next_draw_view_2(TimeRef, Interval, Port, PrintFun) ->
     receive
         quit -> quit;
         {new_interval, NewInterval} ->
-            ?output(?CLEAR),
-            render_worker(Port, NewInterval, TimeRef);
+            ?output(?CLEAR, PrintFun),
+            render_worker(Port, NewInterval, TimeRef, PrintFun);
         _ ->
-            ?output(?CLEAR),
-            render_worker(Port, Interval, TimeRef)
+            ?output(?CLEAR, PrintFun),
+            render_worker(Port, Interval, TimeRef, PrintFun)
     end.
 
 render_port_info(Port, Id, Name, OsPid, Input,
@@ -182,19 +182,19 @@ render_opts(Opts) ->
     Buffer = proplists:get_value(buffer, Opts),
     DelaySend = proplists:get_value(delay_send, Opts),
     DontRoute = proplists:get_value(dontroute, Opts),
-    
+
     ExitOnClose = proplists:get_value(exit_on_close, Opts),
     Header = proplists:get_value(header, Opts),
     HighWatermark = proplists:get_value(high_watermark, Opts),
     KeepAlive = proplists:get_value(keepalive, Opts),
     Linger = io_lib:format("~p", [proplists:get_value(linger, Opts)]),
-    
+
     LowWatermark = proplists:get_value(low_watermark, Opts),
     Mode = proplists:get_value(mode, Opts),
     NoDelay = proplists:get_value(nodelay, Opts),
     Packet = proplists:get_value(packet, Opts),
     PacketSize = proplists:get_value(packet_size, Opts),
-    
+
     Priority = proplists:get_value(priority, Opts),
     RecBuf = proplists:get_value(recbuf, Opts),
     ReuseAddr = proplists:get_value(reuseaddr, Opts),
@@ -270,11 +270,11 @@ parse_cmd(ViewOpts, Pid) ->
             observer_cli_lib:parse_integer(Number)
     end.
 
-output_die_view(Port, Interval) ->
+output_die_view(PrintFun,Port, Interval) ->
     Menu = render_menu(info, Interval),
     Line = io_lib:format("\e[31mPort(~p) has already die.\e[0m~n", [Port]),
     LastLine = render_last_line(),
-    ?output([?CURSOR_TOP, Menu, Line, LastLine]).
+    ?output(PrintFun,[?CURSOR_TOP, Menu, Line, LastLine]).
 
 addr_to_str({Addr, Port}) ->
     AddrList = [begin erlang:integer_to_list(A) end|| A <- erlang:tuple_to_list(Addr)],
