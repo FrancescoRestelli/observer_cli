@@ -163,6 +163,14 @@ to_str({byte, Bytes}) -> to_byte(Bytes);
 to_str(Term) -> to_list(Term).
 
 -spec parse_cmd(#view_opts{}, [pid()]) -> atom()|string().
+
+%when we have a print fun we assume we also do not fun in io mode and expect the actions as messages
+parse_cmd(#view_opts{home = #home{printFun = PrintFun}}, Pids)when is_function(PrintFun) ->
+    receive
+        Any ->io:format("we got a message ~p",[Any])
+    end;
+
+%regular iolib  version
 parse_cmd(ViewOpts, Pids) ->
     case to_list(io:get_line("")) of
         %% inet
