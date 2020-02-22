@@ -165,7 +165,7 @@ to_str(Term) -> to_list(Term).
 -spec parse_cmd(#view_opts{}, [pid()]) -> atom()|string().
 
 %when we have a print fun we assume we also do not fun in io mode and expect the actions as messages
-parse_cmd(#view_opts{home = #home{printFun = PrintFun}}, Pids)when is_function(PrintFun) ->
+parse_cmd(#view_opts{home = #home{printFun = PrintFun}}=ViewOpts, Pids)when is_function(PrintFun) ->
     receive
         "ic\n" -> inet_count;
         "iw\n" -> inet_window;
