@@ -167,7 +167,66 @@ to_str(Term) -> to_list(Term).
 %when we have a print fun we assume we also do not fun in io mode and expect the actions as messages
 parse_cmd(#view_opts{home = #home{printFun = PrintFun}}, Pids)when is_function(PrintFun) ->
     receive
-        Any ->io:format("we got a message ~p",[Any])
+        "ic\n" -> inet_count;
+        "iw\n" -> inet_window;
+        "rc\n" -> recv_cnt;
+        "ro\n" -> recv_oct;
+        "sc\n" -> send_cnt;
+        "so\n" -> send_oct;
+        "cnt\n" -> cnt;
+        "oct\n" -> oct;
+
+    %% menu view
+        "H\n" ->
+            exit_processes(Pids),
+            observer_cli:start(ViewOpts);
+        "S\n" ->
+            exit_processes(Pids),
+            observer_cli_system:start(ViewOpts);
+        "A\n" ->
+            exit_processes(Pids),
+            observer_cli_application:start(ViewOpts);
+        "N\n" ->
+            exit_processes(Pids),
+            observer_cli_inet:start(ViewOpts);
+        "M\n" ->
+            exit_processes(Pids),
+            observer_cli_mnesia:start(ViewOpts);
+        "E\n" ->
+            exit_processes(Pids),
+            observer_cli_ets:start(ViewOpts);
+        "D\n" ->
+            exit_processes(Pids),
+            observer_cli_help:start(ViewOpts);
+        "P\n" ->
+            exit_processes(Pids),
+            observer_cli_plugin:start(ViewOpts);
+        "q\n" -> quit;
+        "Q\n" -> quit;
+        "pu\n" -> page_up_top_n;     %% backward
+        "pd\n" -> page_down_top_n;   %% forward
+        "PU\n" -> page_up_top_n;     %% backward
+        "PD\n" -> page_down_top_n;   %% forward
+        "B\n" -> page_up_top_n;     %% backward
+        "F\n" -> page_down_top_n;   %% forward
+
+    %% home
+        "p\n" -> pause_or_resume;
+        "r\n" -> {func, proc_count, reductions};
+        "b\n" -> {func, proc_count, binary_memory};
+        "t\n" -> {func, proc_count, total_heap_size};
+        "m\n" -> {func, proc_count, memory};
+        "mq\n" -> {func, proc_count, message_queue_len};
+        "rr\n" -> {func, proc_window, reductions};
+        "bb\n" -> {func, proc_window, binary_memory};
+        "tt\n" -> {func, proc_window, total_heap_size};
+        "mm\n" -> {func, proc_window, memory};
+        "mmq\n" -> {func, proc_window, message_queue_len};
+        "\n" -> jump;
+        "s\n" -> size;
+        "hide\n" -> hide;
+        Number ->
+            parse_integer(Number)
     end;
 
 %regular iolib  version
